@@ -3,877 +3,1345 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Kids English Speaking Game - เกมฝึกพูดภาษาอังกฤษ AR</title>
-    
-    <!-- Google Font: Mitr -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Tailwind CSS -->
+    <title>Mini Farm Island 3D</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        mitr: ['Mitr', 'sans-serif'],
-                    },
-                    colors: {
-                        pastelPink: '#FF9A9E',
-                        pastelOrange: '#FECFEF',
-                        pastelYellow: '#FFECB3',
-                        pastelGreen: '#C8E6C9',
-                        pastelPurple: '#E1BEE7'
-                    },
-                    animation: {
-                        'bounce-slow': 'bounce 2s infinite',
-                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                    }
-                }
-            }
-        }
-    </script>
-    
-    <!-- Canvas Confetti CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    
-    <!-- MediaPipe Face Mesh and Camera Utilities CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
-        * {
-            font-family: 'Mitr', sans-serif;
+        body {
+            font-family: 'Kanit', sans-serif;
             user-select: none;
+            overflow: hidden;
+            background-color: #38bdf8;
+            margin: 0;
+            padding: 0;
         }
-        
-        /* Custom Glassmorphism styling */
         .glass-panel {
-            background: rgba(255, 255, 255, 0.55);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 2px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 0 12px 32px 0 rgba(255, 154, 158, 0.25);
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
         }
-
-        .glass-card {
-            background: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1.5px solid rgba(255, 255, 255, 0.9);
+        .float-text {
+            position: absolute;
+            pointer-events: none;
+            font-weight: 700;
+            font-size: 1.25rem;
+            animation: floatUp 1.2s ease-out forwards;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            z-index: 100;
         }
-
-        /* Mirrored Video & Canvas Overlay */
-        .mirror-view {
-            transform: scaleX(-1);
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(0.8); }
+            50% { opacity: 1; transform: translateY(-30px) scale(1.1); }
+            100% { opacity: 0; transform: translateY(-60px) scale(1); }
         }
-
-        /* Custom scrollbar override */
-        ::-webkit-scrollbar {
-            display: none;
+        .badge-3d {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            pointer-events: none;
+            z-index: 50;
+            transition: all 0.1s ease;
+        }
+        .pulse-btn {
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        .pulse-btn:hover {
+            transform: scale(1.03);
+        }
+        .pulse-btn:active {
+            transform: scale(0.96);
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-amber-200 via-rose-300 to-pink-400 h-screen w-screen overflow-hidden text-slate-800 flex items-center justify-center p-2 md:p-4">
+<body class="w-screen h-screen overflow-hidden relative">
 
-    <!-- Main Application Container -->
-    <main class="w-full h-full max-w-7xl max-h-[960px] flex flex-col md:flex-row gap-3 md:gap-5 relative z-10">
+    <div id="canvas-container" class="w-full h-full absolute inset-0 z-0"></div>
 
-        <!-- ================= LEFT PANEL: UI & GAMEPLAY ================= -->
-        <section class="w-full md:w-1/2 h-1/2 md:h-full glass-panel rounded-3xl p-4 md:p-6 flex flex-col justify-between relative overflow-hidden shrink-0">
+    <div id="ui-overlay" class="w-full h-full absolute inset-0 z-10 pointer-events-none flex flex-col justify-between p-4 sm:p-6">
+        
+        <!-- Top Navigation / Status Header -->
+        <div class="flex justify-between items-start w-full">
             
-            <!-- Top Header: Stats & Question Counter -->
-            <div class="flex items-center justify-between gap-2">
-                <!-- Question Badge -->
-                <div class="flex items-center gap-2 bg-white/80 px-4 py-2 rounded-2xl shadow-sm border border-white">
-                    <i class="fa-solid fa-list-check text-pink-500 text-lg"></i>
-                    <span class="text-sm md:text-base font-semibold text-slate-700">ข้อที่ <span id="current-q-num" class="text-pink-600 font-bold text-lg">1</span>/10</span>
+            <!-- Left Info Panel -->
+            <div class="glass-panel p-4 rounded-2xl w-64 pointer-events-auto flex flex-col gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🌱</span>
+                    <h1 class="font-bold text-xl text-emerald-800">Mini Farm Island</h1>
                 </div>
-
-                <!-- Game Status Badge -->
-                <div id="status-badge" class="px-4 py-2 rounded-2xl bg-amber-100 text-amber-700 border border-amber-300 font-medium text-sm md:text-base flex items-center gap-2 shadow-sm transition-all duration-300">
-                    <span id="status-dot" class="w-3 h-3 rounded-full bg-amber-500 animate-pulse"></span>
-                    <span id="status-text">เตรียมพร้อม...</span>
-                </div>
-
-                <!-- Total Score Badge -->
-                <div class="flex items-center gap-2 bg-white/80 px-4 py-2 rounded-2xl shadow-sm border border-white">
-                    <i class="fa-solid fa-star text-amber-400 text-xl animate-bounce"></i>
-                    <span class="text-sm md:text-base font-semibold text-slate-700">คะแนน: <span id="total-score" class="text-amber-500 font-bold text-xl">0</span></span>
-                </div>
-            </div>
-
-            <!-- Main Vocab Display Card -->
-            <div class="flex-1 my-3 flex flex-col items-center justify-center text-center p-4 glass-card rounded-2xl relative shadow-inner overflow-hidden">
-                <!-- Countdown Overlay Circle -->
-                <div id="countdown-display" class="hidden absolute inset-0 bg-white/90 backdrop-blur-md z-20 flex flex-col items-center justify-center">
-                    <span class="text-2xl font-semibold text-slate-600 mb-2">เริ่มพูดใน</span>
-                    <span id="countdown-number" class="text-8xl font-black text-pink-500 animate-ping">3</span>
-                </div>
-
-                <div class="mb-2">
-                    <span class="text-xs md:text-sm uppercase tracking-widest text-slate-400 font-bold bg-slate-100 px-3 py-1 rounded-full">English Word</span>
-                </div>
-
-                <!-- Target English Word -->
-                <h1 id="vocab-english" class="text-4xl sm:text-5xl md:text-6xl font-black text-slate-800 tracking-wide my-2 drop-shadow-sm transition-all duration-300">
-                    APPLE
-                </h1>
-
-                <!-- Thai Translation -->
-                <p id="vocab-thai" class="text-lg md:text-2xl font-medium text-pink-600 bg-pink-50/80 px-4 py-1.5 rounded-full mt-1 border border-pink-200">
-                    แอปเปิ้ล
-                </p>
-
-                <!-- Live Spoken Speech Display -->
-                <div class="mt-4 w-full max-w-xs min-h-[40px] flex items-center justify-center bg-slate-50/80 rounded-xl p-2 border border-slate-200/80">
-                    <p class="text-xs md:text-sm text-slate-500 italic">
-                        <i class="fa-solid fa-microphone-lines mr-1 text-pink-400"></i>
-                        <span id="live-speech-text">กดเริ่มเกมเพื่อฝึกพูด...</span>
-                    </p>
-                </div>
-            </div>
-
-            <!-- Bottom Controls & Accuracy Meter -->
-            <div class="space-y-3">
-                <!-- Accuracy Bar Label -->
-                <div class="flex justify-between items-center text-xs md:text-sm font-semibold px-1">
-                    <span class="text-slate-600 flex items-center gap-1.5">
-                        <i class="fa-solid fa-bullseye text-pink-500"></i> ความแม่นยำของการออกเสียง
-                    </span>
-                    <span id="accuracy-percent-text" class="text-pink-600 font-bold text-base">0%</span>
-                </div>
-
-                <!-- Meter Bar Container -->
-                <div class="w-full bg-slate-200/80 h-5 md:h-6 rounded-full overflow-hidden p-1 border border-white shadow-inner relative">
-                    <div id="accuracy-meter-bar" class="bg-gradient-to-r from-pink-400 to-amber-400 h-full rounded-full transition-all duration-500 w-0"></div>
-                </div>
-
-                <!-- Interactive Info / Mic Status -->
-                <div class="flex items-center justify-between text-xs text-slate-500 pt-1 px-1">
-                    <span id="speech-hint" class="flex items-center gap-1 text-amber-700">
-                        <i class="fa-solid fa-circle-info"></i> ต้องออกเสียงให้ตรงอย่างน้อย 80%
-                    </span>
-                    <span class="text-slate-400">Web Speech API</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- ================= RIGHT PANEL: AR CAMERA VIEWPORT ================= -->
-        <section class="w-full md:w-1/2 h-1/2 md:h-full glass-panel rounded-3xl p-3 md:p-4 flex flex-col relative overflow-hidden shrink-0">
-            <div class="w-full h-full relative rounded-2xl overflow-hidden bg-slate-900 border-2 border-white shadow-lg flex items-center justify-center">
                 
-                <!-- WebCam Video Stream -->
-                <video id="webcam-video" class="w-full h-full object-cover mirror-view" playsinline></video>
-                
-                <!-- AR Render Canvas -->
-                <canvas id="ar-canvas" class="absolute inset-0 w-full h-full mirror-view pointer-events-none"></canvas>
-
-                <!-- Camera Loading Indicator -->
-                <div id="camera-loading" class="absolute inset-0 bg-slate-900/90 text-white flex flex-col items-center justify-center gap-3 z-10 transition-opacity duration-300">
-                    <i class="fa-solid fa-circle-notch fa-spin text-4xl text-pink-400"></i>
-                    <p class="text-sm font-medium">กำลังเปิดกล้อง และโหลดระบบ AR...</p>
+                <div class="flex items-center justify-between bg-amber-100/80 px-3 py-2 rounded-xl border border-amber-200">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">🪙</span>
+                        <span class="text-sm font-semibold text-amber-900">เงินออม</span>
+                    </div>
+                    <span id="coin-count" class="font-bold text-lg text-amber-700">100 เหรียญ</span>
                 </div>
 
-                <!-- AR Overlay Status Banner -->
-                <div id="ar-status-overlay" class="absolute top-4 left-4 right-4 text-center py-2 px-4 rounded-xl backdrop-blur-md bg-black/40 text-white font-semibold text-sm border border-white/20 transition-all opacity-0 transform -translate-y-2 pointer-events-none z-20">
-                    AR Active
+                <div class="flex items-center justify-between bg-emerald-100/80 px-3 py-2 rounded-xl border border-emerald-200">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">📦</span>
+                        <span class="text-sm font-semibold text-emerald-900">ผลผลิตในคลัง</span>
+                    </div>
+                    <span id="inventory-count" class="font-bold text-lg text-emerald-700">0 ชิ้น</span>
+                </div>
+
+                <button id="btn-sell-all" onclick="sellAllCrops()" class="pulse-btn w-full py-2.5 px-4 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2">
+                    <span>ขายผลผลิตทั้งหมด</span>
+                </button>
+            </div>
+
+            <!-- Right Shop & Build Panel -->
+            <div class="glass-panel p-4 rounded-2xl w-72 sm:w-80 pointer-events-auto flex flex-col gap-3">
+                <!-- Shop Tabs -->
+                <div class="flex bg-slate-200/70 p-1 rounded-xl">
+                    <button id="tab-seeds" onclick="switchShopTab('seeds')" class="flex-1 py-1.5 text-center font-bold text-sm rounded-lg bg-white text-emerald-700 shadow-sm transition-all">
+                        🌱 เมล็ดพันธุ์
+                    </button>
+                    <button id="tab-build" onclick="switchShopTab('build')" class="flex-1 py-1.5 text-center font-bold text-sm rounded-lg text-slate-600 transition-all">
+                        🔨 ก่อสร้าง
+                    </button>
+                </div>
+
+                <!-- Seeds List Content -->
+                <div id="content-seeds" class="flex flex-col gap-2">
+                    <!-- Tomato -->
+                    <div onclick="selectSeed('tomato')" id="seed-card-tomato" class="seed-card p-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-50/80 cursor-pointer flex justify-between items-center transition-all hover:bg-emerald-100/80">
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-2xl">🍅</span>
+                            <div>
+                                <div class="font-bold text-slate-800 text-sm">มะเขือเทศ</div>
+                                <div class="text-xs text-amber-700 font-semibold">ปลูก: -10 🪙</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-bold text-emerald-600">ขาย: +25 🪙</span>
+                            <div class="text-[10px] text-slate-500">⏱️ 5 วินาที</div>
+                        </div>
+                    </div>
+
+                    <!-- Carrot -->
+                    <div onclick="selectSeed('carrot')" id="seed-card-carrot" class="seed-card p-2.5 rounded-xl border-2 border-transparent bg-white/60 cursor-pointer flex justify-between items-center transition-all hover:bg-white/90">
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-2xl">🥕</span>
+                            <div>
+                                <div class="font-bold text-slate-800 text-sm">แครอท</div>
+                                <div class="text-xs text-amber-700 font-semibold">ปลูก: -20 🪙</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-bold text-emerald-600">ขาย: +60 🪙</span>
+                            <div class="text-[10px] text-slate-500">⏱️ 8 วินาที</div>
+                        </div>
+                    </div>
+
+                    <!-- Cabbage -->
+                    <div onclick="selectSeed('cabbage')" id="seed-card-cabbage" class="seed-card p-2.5 rounded-xl border-2 border-transparent bg-white/60 cursor-pointer flex justify-between items-center transition-all hover:bg-white/90">
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-2xl">🥬</span>
+                            <div>
+                                <div class="font-bold text-slate-800 text-sm">กะหล่ำปลี</div>
+                                <div class="text-xs text-amber-700 font-semibold">ปลูก: -50 🪙</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-bold text-emerald-600">ขาย: +200 🪙</span>
+                            <div class="text-[10px] text-slate-500">⏱️ 12 วินาที</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Build List Content -->
+                <div id="content-build" class="flex flex-col gap-2 hidden">
+                    <!-- Expand Plot -->
+                    <div id="build-card-plot" class="p-2.5 rounded-xl bg-white/70 border border-slate-200 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">🪵</span>
+                            <div>
+                                <div class="font-bold text-slate-800 text-sm">ขยายแปลงผัก</div>
+                                <div id="plot-count-text" class="text-[11px] text-slate-500 font-semibold">(6/12 ช่อง)</div>
+                            </div>
+                        </div>
+                        <button onclick="buyPlotExtension()" id="btn-buy-plot" class="pulse-btn px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-lg shadow-sm">
+                            -150 🪙
+                        </button>
+                    </div>
+
+                    <!-- Upgrade House -->
+                    <div id="build-card-house" class="p-2.5 rounded-xl bg-white/70 border border-slate-200 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">🏡</span>
+                            <div>
+                                <div class="font-bold text-slate-800 text-sm">ต่อเติมบ้าน</div>
+                                <div id="house-level-text" class="text-[11px] text-slate-500 font-semibold">ระดับ 1 -> 2</div>
+                            </div>
+                        </div>
+                        <button onclick="upgradeHouse()" id="btn-upgrade-house" class="pulse-btn px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-lg shadow-sm">
+                            -300 🪙
+                        </button>
+                    </div>
                 </div>
             </div>
-        </section>
+        </div>
 
-    </main>
-
-    <!-- ================= START GAME OVERLAY MODAL ================= -->
-    <div id="start-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 text-center shadow-2xl border-4 border-pink-200 transform transition-all scale-100">
-            <div class="w-20 h-20 bg-pink-100 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-inner animate-bounce">
-                <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <!-- Bottom Guide Bar -->
+        <div class="w-full flex justify-center pointer-events-auto mb-2">
+            <div class="glass-panel px-5 py-2 rounded-full text-xs sm:text-sm font-semibold text-slate-700 shadow-lg flex items-center gap-2 border border-white/60">
+                <span>เลือกเมล็ด</span>
+                <span class="text-slate-400">➡️</span>
+                <span class="text-amber-600">คลิกแปลงดิน ปลูก</span>
+                <span class="text-slate-400">➡️</span>
+                <span class="text-emerald-600">รอต้นโตเต็มที่</span>
+                <span class="text-slate-400">➡️</span>
+                <span class="text-blue-600">คลิก เก็บเกี่ยว</span>
             </div>
+        </div>
+    </div>
+
+    <div id="label-container" class="absolute inset-0 pointer-events-none z-20">
+        <!-- Robot Badge -->
+        <div id="robot-badge" class="badge-3d hidden">
+            <div id="robot-badge-content" class="bg-amber-400 text-amber-950 font-bold px-3 py-1 rounded-full shadow-lg border-2 border-amber-200 text-xs flex items-center gap-1 animate-bounce">
+                <span>QUIZ</span> 🤖
+            </div>
+        </div>
+    </div>
+
+    <div id="quiz-modal" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center hidden p-4">
+        <div class="glass-panel p-6 rounded-3xl max-w-sm w-full shadow-2xl border border-white/80 flex flex-col items-center gap-4 text-center animate-fade-in">
+            <div class="text-4xl">🤖</div>
+            <h2 class="font-bold text-lg text-slate-800">หุ่นยนต์ช่วยรดน้ำ</h2>
+            <p class="text-xs text-slate-500 font-medium">ตอบคำถามถูกรับบัฟโตไว 1.5x เป็นเวลา 10 วิ!</p>
             
-            <h2 class="text-2xl md:text-3xl font-bold text-slate-800 mb-2">เกม AR ฝึกพูดภาษาอังกฤษ</h2>
-            <p class="text-sm text-slate-600 mb-6 leading-relaxed">
-                สนุกกับการออกเสียงคำศัพท์ 10 ข้อ!<br>
-                สวมมงกุฎสวยๆ เมื่อตอบถูก และระวังปีศาจน้อยเมื่อตอบผิดนะ!
-            </p>
-
-            <div class="bg-pink-50 rounded-2xl p-4 mb-6 text-left text-xs text-slate-600 space-y-2 border border-pink-100">
-                <p class="font-semibold text-pink-700 text-sm"><i class="fa-solid fa-shield-halved mr-1"></i> คำแนะนำก่อนเริ่ม:</p>
-                <p>1. อนุญาตให้เว็บใช้งาน <b>กล้อง</b> และ <b>ไมโครโฟน</b></p>
-                <p>2. อยู่ในบริเวณที่มีแสงสว่างชัดเจน</p>
-                <p>3. พูดออกเสียงภาษาอังกฤษให้ชัดเจนเมื่อไมค์เปิด</p>
+            <!-- Question Box -->
+            <div id="quiz-question" class="w-full bg-slate-100 py-4 px-6 rounded-2xl text-2xl font-bold text-slate-800 shadow-inner">
+                12 + 15 = ?
             </div>
 
-            <button id="start-btn" class="w-full py-4 bg-gradient-to-r from-pink-500 to-amber-400 hover:from-pink-600 hover:to-amber-500 text-white font-bold text-lg rounded-2xl shadow-lg hover:shadow-xl transform active:scale-95 transition-all flex items-center justify-center gap-2">
-                <i class="fa-solid fa-play"></i> เริ่มเล่นเกมเลย!
+            <!-- Answer Options Grid -->
+            <div id="quiz-options" class="grid grid-cols-2 gap-2.5 w-full">
+                <!-- Options inserted via JS -->
+            </div>
+
+            <button onclick="closeQuizModal()" class="mt-2 text-xs text-slate-400 hover:text-slate-600 font-semibold underline">
+                ปิดหน้าต่าง
             </button>
         </div>
     </div>
 
-    <!-- ================= END GAME OVERLAY MODAL ================= -->
-    <div id="end-modal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-md w-full p-6 md:p-8 text-center shadow-2xl border-4 border-amber-300 transform transition-all">
-            <div id="end-icon" class="w-24 h-24 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner">
-                <i class="fa-solid fa-trophy"></i>
-            </div>
-            
-            <h2 id="end-title" class="text-2xl md:text-3xl font-bold text-slate-800 mb-1">เก่งมากเลยเด็กๆ!</h2>
-            <p id="end-subtitle" class="text-sm text-slate-500 mb-4">สรุปผลการฝึกพูดภาษาอังกฤษ</p>
-
-            <!-- Final Score Box -->
-            <div class="bg-gradient-to-br from-amber-50 to-pink-50 rounded-2xl p-6 mb-6 border border-amber-200">
-                <span class="text-xs uppercase tracking-wider text-slate-400 font-bold">คะแนนรวมของคุณ</span>
-                <div class="text-5xl font-black text-pink-500 my-2">
-                    <span id="final-score">0</span> / 10
-                </div>
-                <p id="end-feedback" class="text-sm font-medium text-slate-600">ผ่านเกณฑ์ยอดเยี่ยม!</p>
-            </div>
-
-            <button id="restart-btn" class="w-full py-4 bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-bold text-lg rounded-2xl shadow-lg hover:shadow-xl transform active:scale-95 transition-all flex items-center justify-center gap-2">
-                <i class="fa-solid fa-rotate-right"></i> เล่นใหม่อีกครั้ง
-            </button>
-        </div>
-    </div>
+    <!-- Floating Text Container -->
+    <div id="float-container" class="fixed inset-0 pointer-events-none z-50"></div>
 
     <script>
-        // ================= GAME VOCABULARY LIST (10 WORDS) =================
-        const VOCABULARY = [
-            { english: "APPLE", thai: "แอปเปิ้ล" },
-            { english: "BANANA", thai: "กล้วย" },
-            { english: "CAT", thai: "แมว" },
-            { english: "DOG", thai: "สุนัข" },
-            { english: "ELEPHANT", thai: "ช้าง" },
-            { english: "FISH", thai: "ปลา" },
-            { english: "GIRAFFE", thai: "ยีราฟ" },
-            { english: "HOUSE", thai: "บ้าน" },
-            { english: "ICE CREAM", thai: "ไอศกรีม" },
-            { english: "MONKEY", thai: "ลิง" }
+        /* ==========================================
+           1. GAME CONFIGURATION & STATE
+           ========================================== */
+        const CROP_DATA = {
+            tomato: { name: 'มะเขือเทศ', cost: 10, sell: 25, growTime: 5, icon: '🍅', color: 0xef4444 },
+            carrot: { name: 'แครอท', cost: 20, sell: 60, growTime: 8, icon: '🥕', color: 0xf97316 },
+            cabbage: { name: 'กะหล่ำปลี', cost: 50, sell: 200, growTime: 12, icon: '🥬', color: 0x84cc16 }
+        };
+
+        let gameState = {
+            coins: 100,
+            inventory: { tomato: 0, carrot: 0, cabbage: 0 },
+            totalHarvested: 0,
+            selectedSeed: 'tomato',
+            maxPlots: 12,
+            unlockedPlots: 6,
+            plotCost: 150,
+            houseLevel: 1,
+            houseUpgradeCosts: { 1: 300, 2: 800 },
+            robotState: 'idle', // 'idle', 'buff', 'broken'
+            robotTimer: 0,
+            waterBuffMultiplier: 1.0
+        };
+
+        /* ==========================================
+           2. AUDIO SYSTEM (TONE.JS SYNTHESIZERS)
+           ========================================== */
+        let audioInitialized = false;
+        let popSynth, chimeSynth, coinSynth, wrongSynth;
+
+        function initAudio() {
+            if (audioInitialized) return;
+            try {
+                Tone.start();
+                
+                // Plant Pop Sound
+                popSynth = new Tone.Synth({
+                    oscillator: { type: 'sine' },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 }
+                }).toDestination();
+
+                // Harvest Bell Sound
+                chimeSynth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: 'triangle' },
+                    envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.4 }
+                }).toDestination();
+
+                // Coin Sell Sound
+                coinSynth = new Tone.Synth({
+                    oscillator: { type: 'square' },
+                    envelope: { attack: 0.01, decay: 0.15, sustain: 0, release: 0.1 }
+                }).toDestination();
+
+                // Wrong Sound
+                wrongSynth = new Tone.Synth({
+                    oscillator: { type: 'sawtooth' },
+                    envelope: { attack: 0.02, decay: 0.2, sustain: 0, release: 0.2 }
+                }).toDestination();
+
+                audioInitialized = true;
+            } catch (e) {
+                console.warn("Audio init failed:", e);
+            }
+        }
+
+        function playSFX(type) {
+            if (!audioInitialized) initAudio();
+            if (!audioInitialized) return;
+
+            const now = Tone.now();
+            try {
+                if (type === 'plant') {
+                    popSynth.triggerAttackRelease("C5", "8n", now);
+                } else if (type === 'harvest') {
+                    chimeSynth.triggerAttackRelease(["E5", "G5", "C6"], "8n", now);
+                } else if (type === 'sell') {
+                    coinSynth.triggerAttackRelease("B5", "16n", now);
+                    coinSynth.triggerAttackRelease("E6", "8n", now + 0.08);
+                } else if (type === 'correct') {
+                    chimeSynth.triggerAttackRelease(["C5", "E5", "G5", "C6"], "8n", now);
+                } else if (type === 'wrong') {
+                    wrongSynth.triggerAttackRelease("G2", "8n", now);
+                }
+            } catch (e) {}
+        }
+
+        /* ==========================================
+           3. THREE.JS SCENE, CAMERA, LIGHTS & OCEAN
+           ========================================== */
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x38bdf8); // Sky blue
+        scene.fog = new THREE.FogExp2(0x38bdf8, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 14, 18);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent camera under ground
+        controls.minDistance = 8;
+        controls.maxDistance = 26;
+        controls.target.set(0, 1, 0);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfffbeb, 0.9);
+        dirLight.position.set(15, 25, 15);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 1024;
+        dirLight.shadow.mapSize.height = 1024;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 50;
+        const d = 12;
+        dirLight.shadow.camera.left = -d;
+        dirLight.shadow.camera.right = d;
+        dirLight.shadow.camera.top = d;
+        dirLight.shadow.camera.bottom = -d;
+        scene.add(dirLight);
+
+        // Ocean Wave Mesh
+        const oceanGeo = new THREE.PlaneGeometry(120, 120, 32, 32);
+        oceanGeo.rotateX(-Math.PI / 2);
+        const oceanMat = new THREE.MeshStandardMaterial({
+            color: 0x0284c7,
+            roughness: 0.1,
+            metalness: 0.1,
+            flatShading: true
+        });
+        const oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
+        oceanMesh.position.y = -1.2;
+        scene.add(oceanMesh);
+
+        // Save original vertices for ocean wave animation
+        const oceanPos = oceanGeo.attributes.position;
+        const initialOceanY = [];
+        for (let i = 0; i < oceanPos.count; i++) {
+            initialOceanY.push(oceanPos.getY(i));
+        }
+
+        // Island Base (Low poly cylinder)
+        const islandGroup = new THREE.Group();
+        scene.add(islandGroup);
+
+        // Grass top
+        const grassGeo = new THREE.CylinderGeometry(11, 10.5, 1.2, 32);
+        const grassMat = new THREE.MeshStandardMaterial({ color: 0x86efac, roughness: 0.8, flatShading: true });
+        const grassMesh = new THREE.Mesh(grassGeo, grassMat);
+        grassMesh.position.y = -0.6;
+        grassMesh.receiveShadow = true;
+        islandGroup.add(grassMesh);
+
+        // Sand ring
+        const sandGeo = new THREE.CylinderGeometry(11.3, 10, 1.4, 32);
+        const sandMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.9, flatShading: true });
+        const sandMesh = new THREE.Mesh(sandGeo, sandMat);
+        sandMesh.position.y = -0.7;
+        islandGroup.add(sandMesh);
+
+        // Dirt Base Underneath
+        const dirtGeo = new THREE.ConeGeometry(10.2, 8, 32);
+        const dirtMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 1.0, flatShading: true });
+        const dirtMesh = new THREE.Mesh(dirtGeo, dirtMat);
+        dirtMesh.rotation.x = Math.PI;
+        dirtMesh.position.y = -4.7;
+        islandGroup.add(dirtMesh);
+
+        /* ==========================================
+           4. ENVIRONMENT DECORATIONS & HOUSE
+           ========================================== */
+        const trees = [];
+        function createTree(x, z, scale = 1) {
+            const treeGroup = new THREE.Group();
+            
+            // Trunk
+            const trunkGeo = new THREE.CylinderGeometry(0.2, 0.3, 1.2, 6);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x92400e, flatShading: true });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 0.6;
+            trunk.castShadow = true;
+            treeGroup.add(trunk);
+
+            // Foliage Cone Layers
+            const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, flatShading: true });
+            for (let i = 0; i < 3; i++) {
+                const coneGeo = new THREE.ConeGeometry(1.2 - i * 0.25, 1.5, 7);
+                const cone = new THREE.Mesh(coneGeo, leafMat);
+                cone.position.y = 1.4 + i * 0.8;
+                cone.castShadow = true;
+                treeGroup.add(cone);
+            }
+
+            treeGroup.position.set(x, 0, z);
+            treeGroup.scale.set(scale, scale, scale);
+            scene.add(treeGroup);
+            trees.push(treeGroup);
+        }
+
+        // Place surrounding trees
+        createTree(-7, -4, 1.2);
+        createTree(-8, 2, 1.1);
+        createTree(7, -3, 1.3);
+        createTree(8, 3, 1.0);
+        createTree(-4, -7, 1.1);
+
+        // Place Rocks
+        function createRock(x, z, scale = 1) {
+            const rockGeo = new THREE.DodecahedronGeometry(0.5, 0);
+            const rockMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, flatShading: true });
+            const rock = new THREE.Mesh(rockGeo, rockMat);
+            rock.position.set(x, 0.2, z);
+            rock.scale.set(scale, scale * 0.7, scale);
+            rock.rotation.set(Math.random(), Math.random(), Math.random());
+            rock.castShadow = true;
+            scene.add(rock);
+        }
+        createRock(-3.5, 5.5, 0.8);
+        createRock(5, 4.5, 1.1);
+        createRock(6, -6, 0.9);
+        createRock(-6, -2, 0.7);
+
+        // Smoke Particle System
+        const smokeParticles = [];
+        const smokeGroup = new THREE.Group();
+        scene.add(smokeGroup);
+
+        function emitSmokeParticle(originX, originY, originZ) {
+            const pGeo = new THREE.DodecahedronGeometry(0.18, 0);
+            const pMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.7 });
+            const p = new THREE.Mesh(pGeo, pMat);
+            p.position.set(originX + (Math.random() - 0.5) * 0.1, originY, originZ + (Math.random() - 0.5) * 0.1);
+            smokeGroup.add(p);
+            smokeParticles.push({ mesh: p, life: 0, maxLife: 1.8 + Math.random() * 0.5 });
+        }
+
+        // House Building Object
+        let houseGroup = new THREE.Group();
+        houseGroup.position.set(0, 0, -4.5);
+        scene.add(houseGroup);
+
+        let chimneyPos = new THREE.Vector3(0.8, 3.2, -4.2);
+
+        function rebuildHouse(level) {
+            // Clear existing house
+            while (houseGroup.children.length > 0) {
+                houseGroup.remove(houseGroup.children[0]);
+            }
+
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, flatShading: true });
+            const roofMat = new THREE.MeshStandardMaterial({ color: 0xea580c, flatShading: true });
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, flatShading: true });
+            const windowMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, flatShading: true });
+
+            if (level === 1) {
+                // Base House
+                const body = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.0, 2.2), wallMat);
+                body.position.y = 1.0;
+                body.castShadow = true;
+                houseGroup.add(body);
+
+                const roof = new THREE.Mesh(new THREE.ConeGeometry(2.3, 1.6, 4), roofMat);
+                roof.position.y = 2.8;
+                roof.rotation.y = Math.PI / 4;
+                roof.castShadow = true;
+                houseGroup.add(roof);
+
+                const door = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.1, 0.1), woodMat);
+                door.position.set(0, 0.55, 1.11);
+                houseGroup.add(door);
+
+                const windowMesh = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.1), windowMat);
+                windowMesh.position.set(0.8, 1.2, 1.11);
+                houseGroup.add(windowMesh);
+
+                // Chimney
+                const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.2, 0.4), woodMat);
+                chimney.position.set(0.8, 2.6, -0.3);
+                houseGroup.add(chimney);
+                chimneyPos.set(0.8, 3.3, -4.8);
+
+            } else if (level === 2) {
+                // Level 2 House (Two Storey / Blue Roof)
+                const roofMat2 = new THREE.MeshStandardMaterial({ color: 0x0284c7, flatShading: true });
+                
+                const body1 = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.2, 2.6), wallMat);
+                body1.position.y = 1.1;
+                body1.castShadow = true;
+                houseGroup.add(body1);
+
+                const body2 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.8, 2.2), wallMat);
+                body2.position.y = 3.0;
+                body2.castShadow = true;
+                houseGroup.add(body2);
+
+                const roof = new THREE.Mesh(new THREE.ConeGeometry(2.3, 1.6, 4), roofMat2);
+                roof.position.y = 4.6;
+                roof.rotation.y = Math.PI / 4;
+                roof.castShadow = true;
+                houseGroup.add(roof);
+
+                const door = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.3, 0.1), woodMat);
+                door.position.set(-0.6, 0.65, 1.31);
+                houseGroup.add(door);
+
+                // Windows
+                const w1 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.1), windowMat);
+                w1.position.set(0.7, 1.3, 1.31);
+                houseGroup.add(w1);
+
+                const w2 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.1), windowMat);
+                w2.position.set(0, 3.1, 1.11);
+                houseGroup.add(w2);
+
+                const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.6, 0.4), woodMat);
+                chimney.position.set(0.9, 4.2, -0.4);
+                houseGroup.add(chimney);
+                chimneyPos.set(0.9, 5.1, -4.9);
+
+            } else if (level >= 3) {
+                // Level 3 Mansion / Villa
+                const roofMat3 = new THREE.MeshStandardMaterial({ color: 0xd97706, flatShading: true });
+
+                const main = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.5, 3.0), wallMat);
+                main.position.y = 1.25;
+                main.castShadow = true;
+                houseGroup.add(main);
+
+                const roof1 = new THREE.Mesh(new THREE.ConeGeometry(3.2, 2.0, 4), roofMat3);
+                roof1.position.y = 3.25;
+                roof1.rotation.y = Math.PI / 4;
+                roof1.castShadow = true;
+                houseGroup.add(roof1);
+
+                // Balcony & Pillars
+                const pillar1 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.4), woodMat);
+                pillar1.position.set(-1.6, 1.2, 1.7);
+                houseGroup.add(pillar1);
+
+                const pillar2 = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.4), woodMat);
+                pillar2.position.set(1.6, 1.2, 1.7);
+                houseGroup.add(pillar2);
+
+                const porchRoof = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.2, 1.0), roofMat3);
+                porchRoof.position.set(0, 2.4, 1.6);
+                houseGroup.add(porchRoof);
+
+                const door = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.5, 0.1), woodMat);
+                door.position.set(0, 0.75, 1.51);
+                houseGroup.add(door);
+
+                const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.0, 0.5), woodMat);
+                chimney.position.set(1.4, 3.6, -0.6);
+                houseGroup.add(chimney);
+                chimneyPos.set(1.4, 4.7, -5.1);
+            }
+        }
+        rebuildHouse(1);
+
+        // Water Well
+        const wellGroup = new THREE.Group();
+        wellGroup.position.set(-3.2, 0, -3.2);
+
+        const wellBase = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.8, 12), new THREE.MeshStandardMaterial({ color: 0x64748b, flatShading: true }));
+        wellBase.position.y = 0.4;
+        wellBase.castShadow = true;
+        wellGroup.add(wellBase);
+
+        const wellWater = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.7, 12), new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.1 }));
+        wellWater.position.y = 0.42;
+        wellGroup.add(wellWater);
+
+        const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.4), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+        post1.position.set(-0.7, 1.1, 0);
+        wellGroup.add(post1);
+
+        const post2 = post1.clone();
+        post2.position.set(0.7, 1.1, 0);
+        wellGroup.add(post2);
+
+        const wellRoof = new THREE.Mesh(new THREE.ConeGeometry(1.1, 0.8, 4), new THREE.MeshStandardMaterial({ color: 0xd97706, flatShading: true }));
+        wellRoof.position.y = 2.0;
+        wellRoof.rotation.y = Math.PI / 4;
+        wellRoof.castShadow = true;
+        wellGroup.add(wellRoof);
+
+        scene.add(wellGroup);
+
+        /* ==========================================
+           5. ROBOT MODEL & PARTICLES
+           ========================================== */
+        const robotGroup = new THREE.Group();
+        robotGroup.position.set(-3.2, 0, -1.2);
+        scene.add(robotGroup);
+
+        // Body
+        const robotBodyMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, flatShading: true });
+        const robotBlueMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, flatShading: true });
+        const robotYellowMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, flatShading: true });
+
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.5), robotBodyMat);
+        body.position.y = 0.6;
+        body.castShadow = true;
+        robotGroup.add(body);
+
+        // Head
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.4), robotBodyMat);
+        head.position.y = 1.3;
+        head.castShadow = true;
+        robotGroup.add(head);
+
+        // Eyes
+        const eye1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.05), robotBlueMat);
+        eye1.position.set(-0.12, 1.35, 0.21);
+        robotGroup.add(eye1);
+
+        const eye2 = eye1.clone();
+        eye2.position.set(0.12, 1.35, 0.21);
+        robotGroup.add(eye2);
+
+        // Antenna
+        const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.3), robotBodyMat);
+        ant.position.y = 1.65;
+        robotGroup.add(ant);
+
+        const antTip = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), robotYellowMat);
+        antTip.position.y = 1.8;
+        robotGroup.add(antTip);
+
+        // Base Track
+        const track = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.6), robotBlueMat);
+        track.position.y = 0.1;
+        robotGroup.add(track);
+
+        // Particle Emitters for Robot Buff (Water) and Error (Sparks)
+        const waterParticles = [];
+        const sparkParticles = [];
+
+        function createWaterDrop() {
+            const geo = new THREE.SphereGeometry(0.06, 6, 6);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.8 });
+            const drop = new THREE.Mesh(geo, mat);
+            // Spawn randomly above farm plots
+            drop.position.set((Math.random() - 0.5) * 5, 4 + Math.random(), (Math.random() - 0.5) * 4 + 0.5);
+            scene.add(drop);
+            waterParticles.push({ mesh: drop, vy: -0.1 - Math.random() * 0.05 });
+        }
+
+        function createSpark() {
+            const geo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
+            const mat = new THREE.MeshBasicMaterial({ color: Math.random() > 0.5 ? 0xf59e0b : 0xef4444 });
+            const spark = new THREE.Mesh(geo, mat);
+            spark.position.copy(robotGroup.position).add(new THREE.Vector3(0, 1.2, 0));
+            scene.add(spark);
+            sparkParticles.push({
+                mesh: spark,
+                vx: (Math.random() - 0.5) * 0.12,
+                vy: 0.1 + Math.random() * 0.1,
+                vz: (Math.random() - 0.5) * 0.12,
+                life: 0
+            });
+        }
+
+        /* ==========================================
+           6. FARM PLOTS & CROPS SYSTEM
+           ========================================== */
+        const plots = [];
+        const plotGroup = new THREE.Group();
+        scene.add(plotGroup);
+
+        // Grid positions for 12 plots (3 columns x 4 rows)
+        const plotGridPositions = [
+            // Initial 6 plots (Row 1 & 2)
+            { x: -1.4, z: -0.8 }, { x: 0, z: -0.8 }, { x: 1.4, z: -0.8 },
+            { x: -1.4, z: 0.6 },  { x: 0, z: 0.6 },  { x: 1.4, z: 0.6 },
+            // Extra 6 plots (Row 3 & 4)
+            { x: -1.4, z: 2.0 },  { x: 0, z: 2.0 },  { x: 1.4, z: 2.0 },
+            { x: -1.4, z: 3.4 },  { x: 0, z: 3.4 },  { x: 1.4, z: 3.4 }
         ];
 
-        // Global State Variables
-        let currentQuestionIndex = 0;
-        let totalScore = 0;
-        let isListening = false;
-        let recognition = null;
-        let listenTimeoutTimer = null;
-        let currentArEffect = 'NONE'; // 'NONE', 'CROWN', 'HORNS'
-        let faceLandmarksData = null;
+        function initPlots() {
+            const dirtMat = new THREE.MeshStandardMaterial({ color: 0x543820, roughness: 0.9, flatShading: true });
+            const borderMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, flatShading: true });
 
-        // Web Audio API Synthesizer Context
-        let audioCtx = null;
+            plotGridPositions.forEach((pos, idx) => {
+                const pGroup = new THREE.Group();
+                pGroup.position.set(pos.x, 0.05, pos.z);
 
-        // DOM Element Cache
-        const startModal = document.getElementById('start-modal');
-        const endModal = document.getElementById('end-modal');
-        const startBtn = document.getElementById('start-btn');
-        const restartBtn = document.getElementById('restart-btn');
-        const webcamVideo = document.getElementById('webcam-video');
-        const arCanvas = document.getElementById('ar-canvas');
-        const canvasCtx = arCanvas.getContext('2d');
-        const cameraLoading = document.getElementById('camera-loading');
+                // Soil Box
+                const soil = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 1.2), dirtMat);
+                soil.receiveShadow = true;
+                pGroup.add(soil);
 
-        const currentQNumEl = document.getElementById('current-q-num');
-        const totalScoreEl = document.getElementById('total-score');
-        const statusBadgeEl = document.getElementById('status-badge');
-        const statusDotEl = document.getElementById('status-dot');
-        const statusTextEl = document.getElementById('status-text');
+                // Wooden Border Rim
+                const border = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.12, 1.3), borderMat);
+                border.position.y = -0.02;
+                pGroup.add(border);
 
-        const vocabEnglishEl = document.getElementById('vocab-english');
-        const vocabThaiEl = document.getElementById('vocab-thai');
-        const liveSpeechTextEl = document.getElementById('live-speech-text');
-        
-        const accuracyMeterBar = document.getElementById('accuracy-meter-bar');
-        const accuracyPercentText = document.getElementById('accuracy-percent-text');
-        const countdownDisplay = document.getElementById('countdown-display');
-        const countdownNumber = document.getElementById('countdown-number');
-        const arStatusOverlay = document.getElementById('ar-status-overlay');
+                // Progress Bar Billboard Group
+                const barGroup = new THREE.Group();
+                barGroup.position.set(0, 1.2, 0);
+                barGroup.visible = false;
 
-        // ================= WEB AUDIO API SOUND SYNTHESIZER =================
-        function initAudioContext() {
-            if (!audioCtx) {
-                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                if (AudioContextClass) {
-                    audioCtx = new AudioContextClass();
-                }
-            }
-            if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-        }
+                const bgBar = new THREE.Mesh(
+                    new THREE.PlaneGeometry(0.8, 0.12),
+                    new THREE.MeshBasicMaterial({ color: 0x1e293b, side: THREE.DoubleSide })
+                );
+                barGroup.add(bgBar);
 
-        // Generic Oscillator Tone Generator
-        function playTone(freq, type, duration, delay = 0, startGain = 0.3, endGain = 0.001) {
-            if (!audioCtx) return;
-            setTimeout(() => {
-                try {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.type = type;
-                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                    gain.gain.setValueAtTime(startGain, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(endGain, audioCtx.currentTime + duration);
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + duration);
-                } catch (e) {
-                    console.error("Audio synth error:", e);
-                }
-            }, delay * 1000);
-        }
+                const fillBar = new THREE.Mesh(
+                    new THREE.PlaneGeometry(0.76, 0.08),
+                    new THREE.MeshBasicMaterial({ color: 0x22c55e, side: THREE.DoubleSide })
+                );
+                fillBar.position.z = 0.01;
+                barGroup.add(fillBar);
 
-        // Sound Effects Library
-        function playSound(type) {
-            initAudioContext();
-            if (!audioCtx) return;
+                pGroup.add(barGroup);
 
-            switch (type) {
-                case 'click':
-                    playTone(600, 'sine', 0.08, 0, 0.2);
-                    break;
-                case 'tick':
-                    playTone(800, 'triangle', 0.05, 0, 0.25);
-                    break;
-                case 'go':
-                    playTone(523.25, 'sine', 0.1, 0, 0.3); // C5
-                    playTone(659.25, 'sine', 0.2, 0.1, 0.3); // E5
-                    break;
-                case 'correct':
-                    // Cheerful Arpeggio Chord: E5, G#5, B5, E6
-                    playTone(659.25, 'sine', 0.15, 0.0, 0.3);
-                    playTone(830.61, 'sine', 0.15, 0.1, 0.3);
-                    playTone(987.77, 'sine', 0.15, 0.2, 0.3);
-                    playTone(1318.51, 'sine', 0.4, 0.3, 0.4);
-                    break;
-                case 'wrong':
-                    // Low Buzzer
-                    playTone(180, 'sawtooth', 0.25, 0.0, 0.3);
-                    playTone(140, 'sawtooth', 0.35, 0.2, 0.3);
-                    break;
-                case 'warning':
-                    // Double Soft Chime
-                    playTone(440, 'sine', 0.15, 0.0, 0.2);
-                    playTone(440, 'sine', 0.2, 0.15, 0.2);
-                    break;
-                case 'fanfare':
-                    // Victory Fanfare
-                    [523.25, 659.25, 783.99, 1046.50].forEach((f, idx) => {
-                        playTone(f, 'triangle', 0.3, idx * 0.12, 0.3);
-                    });
-                    playTone(1046.50, 'sine', 0.8, 0.5, 0.4);
-                    break;
-                case 'gameover':
-                    // Descending Minor Sad Tones
-                    [440, 415.30, 392.00, 349.23].forEach((f, idx) => {
-                        playTone(f, 'sawtooth', 0.3, idx * 0.2, 0.25);
-                    });
-                    break;
-            }
-        }
+                // Visibility based on unlocked count
+                pGroup.visible = idx < gameState.unlockedPlots;
 
-        // ================= SIMILARITY CALCULATION ALGORITHM =================
-        function calculateSimilarity(str1, str2) {
-            const s1 = str1.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-            const s2 = str2.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
-            
-            if (!s1 || !s2) return 0;
-            if (s1 === s2) return 100;
+                plotGroup.add(pGroup);
 
-            // Direct substring check bonus
-            if (s1.includes(s2) || s2.includes(s1)) {
-                const ratio = Math.min(s1.length, s2.length) / Math.max(s1.length, s2.length);
-                if (ratio > 0.7) return Math.round(ratio * 100);
-            }
-
-            // Levenshtein Distance Matrix
-            const track = Array(s2.length + 1).fill(null).map(() =>
-                Array(s1.length + 1).fill(null));
-            
-            for (let i = 0; i <= s1.length; i += 1) track[0][i] = i;
-            for (let j = 0; j <= s2.length; j += 1) track[j][0] = j;
-
-            for (let j = 1; j <= s2.length; j += 1) {
-                for (let i = 1; i <= s1.length; i += 1) {
-                    const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
-                    track[j][i] = Math.min(
-                        track[j][i - 1] + 1, // deletion
-                        track[j - 1][i] + 1, // insertion
-                        track[j - 1][i - 1] + indicator // substitution
-                    );
-                }
-            }
-
-            const distance = track[s2.length][s1.length];
-            const maxLength = Math.max(s1.length, s2.length);
-            const similarity = ((maxLength - distance) / maxLength) * 100;
-            return Math.max(0, Math.min(100, Math.round(similarity)));
-        }
-
-        // ================= WEB SPEECH RECOGNITION SETUP =================
-        function setupSpeechRecognition() {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) {
-                alert("เบราว์เซอร์ของคุณไม่รองรับ Web Speech API กรุณาใช้ Google Chrome หรือ Microsoft Edge");
-                return;
-            }
-
-            recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = true;
-            recognition.lang = 'en-US';
-
-            recognition.onresult = (event) => {
-                let transcript = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    transcript += event.results[i][0].transcript;
-                }
-                
-                liveSpeechTextEl.innerText = `"${transcript}"`;
-                liveSpeechTextEl.classList.remove('text-slate-500');
-                liveSpeechTextEl.classList.add('text-pink-600', 'font-bold');
-
-                // Evaluate spoken input against target word
-                const targetWord = VOCABULARY[currentQuestionIndex].english;
-                const simScore = calculateSimilarity(transcript, targetWord);
-                
-                updateAccuracyMeter(simScore);
-
-                // If high confidence match received early
-                if (simScore >= 80 && event.results[0].isFinal) {
-                    clearTimeout(listenTimeoutTimer);
-                    stopListeningAndEvaluate(simScore, transcript);
-                }
-            };
-
-            recognition.onerror = (event) => {
-                console.warn("Speech recognition error:", event.error);
-            };
-
-            recognition.onend = () => {
-                isListening = false;
-            };
-        }
-
-        // ================= GAMEPLAY FLOW & ENGINE =================
-        function startNewRound() {
-            // Check if game finished
-            if (currentQuestionIndex >= VOCABULARY.length) {
-                showEndScreen();
-                return;
-            }
-
-            // Update Header Stats
-            currentQNumEl.innerText = currentQuestionIndex + 1;
-            totalScoreEl.innerText = totalScore;
-
-            // Load Word Data
-            const wordObj = VOCABULARY[currentQuestionIndex];
-            vocabEnglishEl.innerText = wordObj.english;
-            vocabThaiEl.innerText = wordObj.thai;
-            liveSpeechTextEl.innerText = "เตรียมตัวออกเสียง...";
-            liveSpeechTextEl.className = "text-xs md:text-sm text-slate-500 italic";
-
-            // Reset Meter Bar & AR Effect
-            updateAccuracyMeter(0);
-            setArEffect('NONE');
-
-            // Start Countdown Sequence
-            startCountdown(() => {
-                startSpeechListening();
+                plots.push({
+                    id: idx,
+                    group: pGroup,
+                    soilMesh: soil,
+                    fillBar: fillBar,
+                    barGroup: barGroup,
+                    state: 'empty', // 'empty', 'growing', 'ready'
+                    cropType: null,
+                    growthProgress: 0, // 0 to 1
+                    cropMesh: null,
+                    unlocked: idx < gameState.unlockedPlots
+                });
             });
         }
+        initPlots();
 
-        function startCountdown(onComplete) {
-            updateStatusBadge("เตรียมตัว...", "bg-amber-100", "text-amber-700", "bg-amber-500");
-            countdownDisplay.classList.remove('hidden');
-            let count = 3;
-            countdownNumber.innerText = count;
-            playSound('tick');
+        // Crop Mesh Creator
+        function createCropMesh(type, stage = 'sprout') {
+            const group = new THREE.Group();
 
-            const timer = setInterval(() => {
-                count--;
-                if (count > 0) {
-                    countdownNumber.innerText = count;
-                    playSound('tick');
-                } else {
-                    clearInterval(timer);
-                    countdownDisplay.classList.add('hidden');
-                    playSound('go');
-                    if (onComplete) onComplete();
-                }
-            }, 1000);
-        }
+            if (stage === 'sprout') {
+                const leafMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, flatShading: true });
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.25), leafMat);
+                stem.position.y = 0.125;
+                group.add(stem);
 
-        function startSpeechListening() {
-            if (!recognition) return;
+                const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.2, 4), leafMat);
+                leaf.position.set(0.05, 0.25, 0);
+                leaf.rotation.z = -0.4;
+                group.add(leaf);
 
-            updateStatusBadge("พูดเลย!", "bg-emerald-100", "text-emerald-700", "bg-emerald-500");
-            liveSpeechTextEl.innerText = "กำลังฟังเสียงคุณอยู่...";
-            
-            try {
-                recognition.start();
-                isListening = true;
-            } catch (e) {
-                console.log("Recognition start warning:", e);
+                group.scale.set(0.8, 0.8, 0.8);
+                return group;
             }
 
-            // Set 5 Seconds Speech Time Limit
-            clearTimeout(listenTimeoutTimer);
-            listenTimeoutTimer = setTimeout(() => {
-                if (isListening) {
-                    try { recognition.stop(); } catch(e){}
-                    isListening = false;
-                    
-                    // Evaluate final spoken output
-                    const currentText = liveSpeechTextEl.innerText.replace(/"/g, '');
-                    const targetWord = VOCABULARY[currentQuestionIndex].english;
-                    
-                    if (currentText.includes("กำลังฟัง") || currentText.includes("เตรียมตัว") || !currentText) {
-                        handleNoSpeechDetected();
-                    } else {
-                        const finalScore = calculateSimilarity(currentText, targetWord);
-                        stopListeningAndEvaluate(finalScore, currentText);
+            // Mature Crops
+            if (type === 'tomato') {
+                const redMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.3, flatShading: true });
+                const greenMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, flatShading: true });
+
+                const fruit1 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), redMat);
+                fruit1.position.set(-0.1, 0.22, 0);
+                fruit1.castShadow = true;
+                group.add(fruit1);
+
+                const fruit2 = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), redMat);
+                fruit2.position.set(0.12, 0.18, 0.08);
+                fruit2.castShadow = true;
+                group.add(fruit2);
+
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.3), greenMat);
+                stem.position.y = 0.15;
+                group.add(stem);
+
+            } else if (type === 'carrot') {
+                const orangeMat = new THREE.MeshStandardMaterial({ color: 0xf97316, flatShading: true });
+                const greenMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, flatShading: true });
+
+                const body = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.6, 7), orangeMat);
+                body.rotation.x = Math.PI;
+                body.position.y = 0.25;
+                body.castShadow = true;
+                group.add(body);
+
+                for (let i = 0; i < 3; i++) {
+                    const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.35, 5), greenMat);
+                    leaf.position.set((i - 1) * 0.08, 0.55, 0);
+                    group.add(leaf);
+                }
+
+            } else if (type === 'cabbage') {
+                const cabbageMat = new THREE.MeshStandardMaterial({ color: 0x84cc16, roughness: 0.5, flatShading: true });
+                const darkLeafMat = new THREE.MeshStandardMaterial({ color: 0x65a30d, flatShading: true });
+
+                const center = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 1), cabbageMat);
+                center.position.y = 0.25;
+                center.castShadow = true;
+                group.add(center);
+
+                for (let i = 0; i < 5; i++) {
+                    const outerLeaf = new THREE.Mesh(new THREE.SphereGeometry(0.25, 6, 6, 0, Math.PI), darkLeafMat);
+                    const angle = (i / 5) * Math.PI * 2;
+                    outerLeaf.position.set(Math.cos(angle) * 0.12, 0.18, Math.sin(angle) * 0.12);
+                    outerLeaf.rotation.y = angle;
+                    outerLeaf.rotation.x = 0.5;
+                    group.add(outerLeaf);
+                }
+            }
+
+            return group;
+        }
+
+        /* ==========================================
+           7. GAMEPLAY LOGIC & USER ACTIONS
+           ========================================== */
+        function updateUI() {
+            document.getElementById('coin-count').innerText = `${gameState.coins} เหรียญ`;
+            
+            const totalInv = gameState.inventory.tomato + gameState.inventory.carrot + gameState.inventory.cabbage;
+            document.getElementById('inventory-count').innerText = `${totalInv} ชิ้น`;
+
+            // Update Plot Count Text
+            document.getElementById('plot-count-text').innerText = `(${gameState.unlockedPlots}/${gameState.maxPlots} ช่อง)`;
+            
+            // House Upgrade Button
+            const houseBtn = document.getElementById('btn-upgrade-house');
+            const houseText = document.getElementById('house-level-text');
+            if (gameState.houseLevel >= 3) {
+                houseText.innerText = 'ระดับสูงสุดแล้ว';
+                houseBtn.innerText = 'MAX';
+                houseBtn.disabled = true;
+                houseBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                const nextCost = gameState.houseUpgradeCosts[gameState.houseLevel];
+                houseText.innerText = `ระดับ ${gameState.houseLevel} -> ${gameState.houseLevel + 1}`;
+                houseBtn.innerText = `-${nextCost} 🪙`;
+            }
+
+            // Plot Upgrade Button
+            const plotBtn = document.getElementById('btn-buy-plot');
+            if (gameState.unlockedPlots >= gameState.maxPlots) {
+                plotBtn.innerText = 'MAX';
+                plotBtn.disabled = true;
+                plotBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        function showFloatText(text, colorClass, event) {
+            const container = document.getElementById('float-container');
+            const el = document.createElement('div');
+            el.className = `float-text ${colorClass}`;
+            el.innerText = text;
+
+            let x = window.innerWidth / 2;
+            let y = window.innerHeight / 2;
+
+            if (event && event.clientX) {
+                x = event.clientX;
+                y = event.clientY;
+            }
+
+            el.style.left = `${x - 30}px`;
+            el.style.top = `${y - 20}px`;
+
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 1200);
+        }
+
+        function plantCrop(plot, event) {
+            const seed = CROP_DATA[gameState.selectedSeed];
+            if (!seed) return;
+
+            if (gameState.coins < seed.cost) {
+                showFloatText('เงินไม่พอ!', 'text-red-500', event);
+                playSFX('wrong');
+                return;
+            }
+
+            gameState.coins -= seed.cost;
+            updateUI();
+            playSFX('plant');
+
+            showFloatText(`-${seed.cost} 🪙`, 'text-amber-500', event);
+
+            plot.state = 'growing';
+            plot.cropType = gameState.selectedSeed;
+            plot.growthProgress = 0;
+
+            // Sprout mesh
+            plot.cropMesh = createCropMesh(gameState.selectedSeed, 'sprout');
+            plot.group.add(plot.cropMesh);
+            plot.barGroup.visible = true;
+        }
+
+        function harvestCrop(plot, event) {
+            const cropType = plot.cropType;
+            gameState.inventory[cropType]++;
+            gameState.totalHarvested++;
+            
+            playSFX('harvest');
+            showFloatText(`+1 ${CROP_DATA[cropType].name}!`, 'text-emerald-500', event);
+
+            // Clean up plot
+            if (plot.cropMesh) {
+                plot.group.remove(plot.cropMesh);
+                plot.cropMesh = null;
+            }
+            plot.state = 'empty';
+            plot.cropType = null;
+            plot.growthProgress = 0;
+            plot.barGroup.visible = false;
+
+            updateUI();
+        }
+
+        function sellAllCrops() {
+            let earnings = 0;
+            Object.keys(gameState.inventory).forEach(type => {
+                const count = gameState.inventory[type];
+                earnings += count * CROP_DATA[type].sell;
+                gameState.inventory[type] = 0;
+            });
+
+            if (earnings > 0) {
+                gameState.coins += earnings;
+                playSFX('sell');
+                showFloatText(`+${earnings} 🪙`, 'text-amber-500', null);
+                updateUI();
+            } else {
+                showFloatText('ไม่มีผลผลิตในคลัง!', 'text-slate-500', null);
+            }
+        }
+
+        function switchShopTab(tab) {
+            document.getElementById('content-seeds').classList.toggle('hidden', tab !== 'seeds');
+            document.getElementById('content-build').classList.toggle('hidden', tab !== 'build');
+
+            document.getElementById('tab-seeds').className = tab === 'seeds' 
+                ? 'flex-1 py-1.5 text-center font-bold text-sm rounded-lg bg-white text-emerald-700 shadow-sm transition-all'
+                : 'flex-1 py-1.5 text-center font-bold text-sm rounded-lg text-slate-600 transition-all';
+
+            document.getElementById('tab-build').className = tab === 'build'
+                ? 'flex-1 py-1.5 text-center font-bold text-sm rounded-lg bg-white text-emerald-700 shadow-sm transition-all'
+                : 'flex-1 py-1.5 text-center font-bold text-sm rounded-lg text-slate-600 transition-all';
+        }
+
+        function selectSeed(seedKey) {
+            gameState.selectedSeed = seedKey;
+            document.querySelectorAll('.seed-card').forEach(card => {
+                card.classList.remove('border-emerald-500', 'bg-emerald-50/80');
+                card.classList.add('border-transparent', 'bg-white/60');
+            });
+            const activeCard = document.getElementById(`seed-card-${seedKey}`);
+            if (activeCard) {
+                activeCard.classList.remove('border-transparent', 'bg-white/60');
+                activeCard.classList.add('border-emerald-500', 'bg-emerald-50/80');
+            }
+        }
+
+        function buyPlotExtension() {
+            if (gameState.unlockedPlots >= gameState.maxPlots) return;
+
+            if (gameState.coins >= gameState.plotCost) {
+                gameState.coins -= gameState.plotCost;
+                const newPlot = plots[gameState.unlockedPlots];
+                newPlot.unlocked = true;
+                newPlot.group.visible = true;
+
+                gameState.unlockedPlots++;
+                playSFX('harvest');
+                showFloatText('ขยายแปลงผักแล้ว! 🎉', 'text-emerald-500', null);
+                updateUI();
+            } else {
+                playSFX('wrong');
+                showFloatText('เงินไม่พอ!', 'text-red-500', null);
+            }
+        }
+
+        function upgradeHouse() {
+            if (gameState.houseLevel >= 3) return;
+
+            const cost = gameState.houseUpgradeCosts[gameState.houseLevel];
+            if (gameState.coins >= cost) {
+                gameState.coins -= cost;
+                gameState.houseLevel++;
+                rebuildHouse(gameState.houseLevel);
+
+                playSFX('harvest');
+                showFloatText('อัปเกรดบ้านแล้ว! 🏡', 'text-amber-500', null);
+                updateUI();
+            } else {
+                playSFX('wrong');
+                showFloatText('เงินไม่พอ!', 'text-red-500', null);
+            }
+        }
+
+        /* ==========================================
+           8. ROBOT MATH QUIZ MINI-GAME
+           ========================================== */
+        let currentQuizAnswer = 0;
+
+        function openQuizModal() {
+            if (gameState.robotState === 'broken') {
+                showFloatText(`หุ่นยนต์พังอยู่! รอ ${Math.ceil(gameState.robotTimer)} วิ`, 'text-red-500', null);
+                return;
+            }
+            if (gameState.robotState === 'buff') {
+                showFloatText(`กำลังรดน้ำอยู่! เหลือเวลา ${Math.ceil(gameState.robotTimer)} วิ`, 'text-blue-500', null);
+                return;
+            }
+
+            // Generate Math Quiz (+, -, *)
+            const ops = ['+', '-', '*'];
+            const op = ops[Math.floor(Math.random() * ops.length)];
+            let num1, num2;
+
+            if (op === '+') {
+                num1 = Math.floor(Math.random() * 40) + 10;
+                num2 = Math.floor(Math.random() * 40) + 10;
+                currentQuizAnswer = num1 + num2;
+            } else if (op === '-') {
+                num1 = Math.floor(Math.random() * 50) + 20;
+                num2 = Math.floor(Math.random() * num1);
+                currentQuizAnswer = num1 - num2;
+            } else if (op === '*') {
+                num1 = Math.floor(Math.random() * 9) + 2;
+                num2 = Math.floor(Math.random() * 9) + 2;
+                currentQuizAnswer = num1 * num2;
+            }
+
+            document.getElementById('quiz-question').innerText = `${num1} ${op} ${num2} = ?`;
+
+            // Generate 4 Options
+            const options = new Set([currentQuizAnswer]);
+            while (options.size < 4) {
+                const diff = (Math.floor(Math.random() * 7) + 1) * (Math.random() > 0.5 ? 1 : -1);
+                const wrong = currentQuizAnswer + diff;
+                if (wrong >= 0) options.add(wrong);
+            }
+
+            const shuffled = Array.from(options).sort(() => Math.random() - 0.5);
+            const container = document.getElementById('quiz-options');
+            container.innerHTML = '';
+
+            shuffled.forEach(ans => {
+                const btn = document.createElement('button');
+                btn.className = 'pulse-btn py-3 px-4 bg-sky-500 hover:bg-sky-600 text-white font-bold text-lg rounded-xl shadow-md transition-all';
+                btn.innerText = ans;
+                btn.onclick = () => handleQuizAnswer(ans);
+                container.appendChild(btn);
+            });
+
+            document.getElementById('quiz-modal').classList.remove('hidden');
+        }
+
+        function closeQuizModal() {
+            document.getElementById('quiz-modal').classList.add('hidden');
+        }
+
+        function handleQuizAnswer(selected) {
+            closeQuizModal();
+
+            if (selected === currentQuizAnswer) {
+                // Correct
+                playSFX('correct');
+                showFloatText('ตอบถูก! ได้รับบัฟรดน้ำ 💦', 'text-emerald-500', null);
+
+                gameState.robotState = 'buff';
+                gameState.robotTimer = 10; // 10 seconds buff
+                gameState.waterBuffMultiplier = 1.5;
+
+            } else {
+                // Wrong
+                playSFX('wrong');
+                showFloatText('ตอบผิด! หุ่นยนต์พัง ⚡', 'text-red-500', null);
+
+                gameState.robotState = 'broken';
+                gameState.robotTimer = 10; // 10 seconds broken
+                gameState.waterBuffMultiplier = 1.0;
+
+                // Burst sparks
+                for (let i = 0; i < 15; i++) createSpark();
+            }
+        }
+
+        /* ==========================================
+           9. RAYCASTING & CLICK INTERACTIONS
+           ========================================== */
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener('click', (e) => {
+            // Ignore UI clicks
+            if (e.target.closest('#ui-overlay') || e.target.closest('#quiz-modal')) return;
+
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            // Check Robot click
+            const robotIntersects = raycaster.intersectObjects(robotGroup.children, true);
+            if (robotIntersects.length > 0) {
+                openQuizModal();
+                return;
+            }
+
+            // Check Plot click
+            plots.forEach(plot => {
+                if (!plot.unlocked) return;
+                const intersects = raycaster.intersectObjects(plot.group.children, true);
+                if (intersects.length > 0) {
+                    if (plot.state === 'empty') {
+                        plantCrop(plot, e);
+                    } else if (plot.state === 'ready') {
+                        harvestCrop(plot, e);
+                    } else if (plot.state === 'growing') {
+                        showFloatText('กำลังเติบโต...', 'text-amber-600', e);
                     }
                 }
-            }, 5000);
-        }
+            });
+        });
 
-        function stopListeningAndEvaluate(score, spokenText) {
-            try { recognition.stop(); } catch(e){}
-            isListening = false;
-            clearTimeout(listenTimeoutTimer);
+        /* ==========================================
+           10. ANIMATION LOOP & RENDER
+           ========================================== */
+        const clock = new THREE.Clock();
 
-            if (score >= 80) {
-                // PASS CASE
-                totalScore++;
-                totalScoreEl.innerText = totalScore;
-                updateStatusBadge("ผ่าน! เก่งมาก", "bg-green-100", "text-green-700", "bg-green-500");
-                updateAccuracyMeter(score, 'PASS');
-                setArEffect('CROWN');
-                playSound('correct');
-                triggerConfetti();
+        function animate() {
+            requestAnimationFrame(animate);
 
-                // Hold result for 3 seconds then next question
-                setTimeout(() => {
-                    currentQuestionIndex++;
-                    startNewRound();
-                }, 3000);
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
 
-            } else {
-                // FAIL CASE
-                updateStatusBadge("ยังไม่ถูกต้อง", "bg-rose-100", "text-rose-700", "bg-rose-500");
-                updateAccuracyMeter(score, 'FAIL');
-                setArEffect('HORNS');
-                playSound('wrong');
-
-                // Hold result for 3 seconds then next question
-                setTimeout(() => {
-                    currentQuestionIndex++;
-                    startNewRound();
-                }, 3000);
+            // 1. Ocean Wave Vertex Animation
+            for (let i = 0; i < oceanPos.count; i++) {
+                const u = oceanPos.getX(i);
+                const v = oceanPos.getZ(i);
+                const z = Math.sin(time * 1.5 + u * 0.2 + v * 0.2) * 0.18;
+                oceanPos.setY(i, initialOceanY[i] + z);
             }
-        }
+            oceanGeo.computeVertexNormals();
+            oceanPos.needsUpdate = true;
 
-        function handleNoSpeechDetected() {
-            updateStatusBadge("ไม่ได้ยินเสียง! ลองใหม่", "bg-amber-100", "text-amber-800", "bg-amber-500");
-            liveSpeechTextEl.innerText = "ไม่ได้ยินเสียงพูดของคุณ...";
-            playSound('warning');
-            setArEffect('NONE');
-
-            // Retry same question after 3 seconds without score penalty
-            setTimeout(() => {
-                startNewRound();
-            }, 3000);
-        }
-
-        function updateStatusBadge(text, bgClass, textClass, dotClass) {
-            statusBadgeEl.className = `px-4 py-2 rounded-2xl ${bgClass} ${textClass} border border-current/20 font-medium text-sm md:text-base flex items-center gap-2 shadow-sm transition-all duration-300`;
-            statusDotEl.className = `w-3 h-3 rounded-full ${dotClass} animate-pulse`;
-            statusTextEl.innerText = text;
-        }
-
-        function updateAccuracyMeter(percentage, state = 'NORMAL') {
-            accuracyPercentText.innerText = `${percentage}%`;
-            accuracyMeterBar.style.width = `${percentage}%`;
-
-            if (state === 'PASS') {
-                accuracyMeterBar.className = "bg-gradient-to-r from-emerald-400 to-green-500 h-full rounded-full transition-all duration-500";
-            } else if (state === 'FAIL') {
-                accuracyMeterBar.className = "bg-gradient-to-r from-rose-400 to-red-500 h-full rounded-full transition-all duration-500";
-            } else {
-                accuracyMeterBar.className = "bg-gradient-to-r from-pink-400 to-amber-400 h-full rounded-full transition-all duration-500";
-            }
-        }
-
-        // ================= MEDIAPIPE FACE MESH & AR ENGINE =================
-        function setArEffect(effect) {
-            currentArEffect = effect;
-            if (effect === 'CROWN') {
-                showArStatusBanner("👑 มงกุฎคนเก่ง!");
-            } else if (effect === 'HORNS') {
-                showArStatusBanner("😈 เจ้าปีศาจน้อย!");
-            } else {
-                arStatusOverlay.classList.add('opacity-0', '-translate-y-2');
-            }
-        }
-
-        function showArStatusBanner(text) {
-            arStatusOverlay.innerText = text;
-            arStatusOverlay.classList.remove('opacity-0', '-translate-y-2');
-        }
-
-        function setupMediaPipeFaceMesh() {
-            const faceMesh = new FaceMesh({
-                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+            // 2. Tree Sway Animation
+            trees.forEach((tree, idx) => {
+                tree.rotation.z = Math.sin(time * 1.2 + idx) * 0.03;
             });
 
-            faceMesh.setOptions({
-                maxNumFaces: 1,
-                refineLandmarks: true,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
+            // 3. Smoke Particles Animation
+            if (Math.random() < 0.2) {
+                emitSmokeParticle(chimneyPos.x, chimneyPos.y, chimneyPos.z);
+            }
+            for (let i = smokeParticles.length - 1; i >= 0; i--) {
+                const p = smokeParticles[i];
+                p.life += delta;
+                p.mesh.position.y += delta * 0.6;
+                p.mesh.position.x += Math.sin(time * 2 + p.life) * 0.005;
+                const scale = 1 + (p.life / p.maxLife) * 1.2;
+                p.mesh.scale.set(scale, scale, scale);
+                p.mesh.material.opacity = 0.7 * (1 - p.life / p.maxLife);
 
-            faceMesh.onResults(onFaceMeshResults);
-
-            const camera = new Camera(webcamVideo, {
-                onFrame: async () => {
-                    await faceMesh.send({ image: webcamVideo });
-                },
-                width: 640,
-                height: 480
-            });
-
-            camera.start()
-                .then(() => {
-                    cameraLoading.classList.add('opacity-0');
-                    setTimeout(() => cameraLoading.classList.add('hidden'), 300);
-                })
-                .catch((err) => {
-                    console.error("Camera access failed:", err);
-                    alert("ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตให้เข้าถึงกล้องและรีเฟรชหน้าเว็บ");
-                });
-        }
-
-        function onFaceMeshResults(results) {
-            // Set canvas size matching video display
-            arCanvas.width = webcamVideo.videoWidth || 640;
-            arCanvas.height = webcamVideo.videoHeight || 480;
-
-            canvasCtx.save();
-            canvasCtx.clearRect(0, 0, arCanvas.width, arCanvas.height);
-
-            if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-                faceLandmarksData = results.multiFaceLandmarks[0];
-
-                // Render AR Effects if active
-                if (currentArEffect === 'CROWN') {
-                    drawCrownAR(faceLandmarksData);
-                } else if (currentArEffect === 'HORNS') {
-                    drawHornsAR(faceLandmarksData);
-                    drawDarkVignette();
+                if (p.life >= p.maxLife) {
+                    smokeGroup.remove(p.mesh);
+                    smokeParticles.splice(i, 1);
                 }
             }
 
-            canvasCtx.restore();
-        }
+            // 4. Robot State Logic & Animation
+            const robotBadge = document.getElementById('robot-badge');
+            const robotBadgeContent = document.getElementById('robot-badge-content');
 
-        // Draw 2D Vector Crown on Forehead
-        function drawCrownAR(landmarks) {
-            // Landmark 10: Forehead top center, Landmark 151: Forehead mid, Landmark 338/109: Forehead sides
-            const topForehead = landmarks[10];
-            const leftTemple = landmarks[109];
-            const rightTemple = landmarks[338];
+            // 3D Tag Position projection
+            const robotHeadPos = new THREE.Vector3().copy(robotGroup.position).add(new THREE.Vector3(0, 2.1, 0));
+            robotHeadPos.project(camera);
+            const x = (robotHeadPos.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (-(robotHeadPos.y * 0.5) + 0.5) * window.innerHeight;
 
-            const x = topForehead.x * arCanvas.width;
-            const y = topForehead.y * arCanvas.height;
+            robotBadge.style.left = `${x}px`;
+            robotBadge.style.top = `${y}px`;
+            robotBadge.classList.remove('hidden');
 
-            // Calculate face width & scale
-            const dx = (rightTemple.x - leftTemple.x) * arCanvas.width;
-            const dy = (rightTemple.y - leftTemple.y) * arCanvas.height;
-            const faceWidth = Math.sqrt(dx * dx + dy * dy);
-            const scale = faceWidth * 1.2;
+            if (gameState.robotState === 'idle') {
+                robotGroup.rotation.y = Math.sin(time * 1.5) * 0.1;
+                robotBadgeContent.className = "bg-amber-400 text-amber-950 font-bold px-3 py-1 rounded-full shadow-lg border-2 border-amber-200 text-xs flex items-center gap-1 animate-bounce";
+                robotBadgeContent.innerHTML = `<span>QUIZ</span> 🤖`;
 
-            // Rotation angle from head tilt
-            const angle = Math.atan2(dy, dx);
+            } else if (gameState.robotState === 'buff') {
+                gameState.robotTimer -= delta;
+                robotGroup.rotation.y += delta * 6; // Happy spin
+                robotBadgeContent.className = "bg-sky-400 text-sky-950 font-bold px-3 py-1 rounded-full shadow-lg border-2 border-sky-200 text-xs flex items-center gap-1";
+                robotBadgeContent.innerHTML = `<span>รดน้ำ 💦 (${Math.ceil(gameState.robotTimer)}s)</span>`;
 
-            canvasCtx.save();
-            canvasCtx.translate(x, y - scale * 0.45);
-            canvasCtx.rotate(angle);
+                // Spawn Water drops
+                if (Math.random() < 0.4) createWaterDrop();
 
-            // Draw Golden Crown Path
-            canvasCtx.beginPath();
-            const w = scale;
-            const h = scale * 0.6;
+                if (gameState.robotTimer <= 0) {
+                    gameState.robotState = 'idle';
+                    gameState.waterBuffMultiplier = 1.0;
+                }
 
-            canvasCtx.moveTo(-w / 2, 0);
-            canvasCtx.lineTo(-w / 2, -h * 0.6);
-            canvasCtx.lineTo(-w * 0.25, -h * 0.3);
-            canvasCtx.lineTo(0, -h); // Center peak
-            canvasCtx.lineTo(w * 0.25, -h * 0.3);
-            canvasCtx.lineTo(w / 2, -h * 0.6);
-            canvasCtx.lineTo(w / 2, 0);
-            canvasCtx.closePath();
+            } else if (gameState.robotState === 'broken') {
+                gameState.robotTimer -= delta;
+                robotGroup.position.x = -3.2 + (Math.random() - 0.5) * 0.08; // Shake
+                robotBadgeContent.className = "bg-red-500 text-white font-bold px-3 py-1 rounded-full shadow-lg border-2 border-red-300 text-xs flex items-center gap-1";
+                robotBadgeContent.innerHTML = `<span>พัง! ⚡ (${Math.ceil(gameState.robotTimer)}s)</span>`;
 
-            // Fill Crown Gradient
-            const grad = canvasCtx.createLinearGradient(0, -h, 0, 0);
-            grad.addColorStop(0, '#FFE082');
-            grad.addColorStop(0.5, '#FFB300');
-            grad.addColorStop(1, '#FF8F00');
-            canvasCtx.fillStyle = grad;
-            canvasCtx.fill();
+                if (Math.random() < 0.2) createSpark();
 
-            // Crown Outline & Jewels
-            canvasCtx.lineWidth = 4;
-            canvasCtx.strokeStyle = '#FFF8E1';
-            canvasCtx.stroke();
-
-            // Red & Blue Jewels on peaks
-            drawJewel(-w / 2, -h * 0.6, 6, '#E53935');
-            drawJewel(0, -h, 8, '#1E88E5');
-            drawJewel(w / 2, -h * 0.6, 6, '#E53935');
-
-            canvasCtx.restore();
-        }
-
-        function drawJewel(cx, cy, r, color) {
-            canvasCtx.beginPath();
-            canvasCtx.arc(cx, cy, r, 0, Math.PI * 2);
-            canvasCtx.fillStyle = color;
-            canvasCtx.fill();
-            canvasCtx.lineWidth = 2;
-            canvasCtx.strokeStyle = '#FFFFFF';
-            canvasCtx.stroke();
-        }
-
-        // Draw 2D Vector Devil Horns on Head Sides
-        function drawHornsAR(landmarks) {
-            const leftForehead = landmarks[104] || landmarks[109];
-            const rightForehead = landmarks[333] || landmarks[338];
-
-            const dx = (rightForehead.x - leftForehead.x) * arCanvas.width;
-            const dy = (rightForehead.y - leftForehead.y) * arCanvas.height;
-            const scale = Math.sqrt(dx * dx + dy * dy) * 0.7;
-            const angle = Math.atan2(dy, dx);
-
-            // Left Horn
-            drawSingleHorn(leftForehead.x * arCanvas.width, leftForehead.y * arCanvas.height, scale, angle - 0.2, true);
-            // Right Horn
-            drawSingleHorn(rightForehead.x * arCanvas.width, rightForehead.y * arCanvas.height, scale, angle + 0.2, false);
-        }
-
-        function drawSingleHorn(x, y, scale, angle, isLeft) {
-            canvasCtx.save();
-            canvasCtx.translate(x, y);
-            canvasCtx.rotate(angle);
-            if (isLeft) canvasCtx.scale(-1, 1);
-
-            const h = scale * 1.2;
-            const w = scale * 0.5;
-
-            canvasCtx.beginPath();
-            canvasCtx.moveTo(-w / 2, 0);
-            canvasCtx.quadraticCurveTo(-w, -h * 0.6, w * 0.3, -h); // Horn curve tip
-            canvasCtx.quadraticCurveTo(0, -h * 0.4, w / 2, 0);
-            canvasCtx.closePath();
-
-            const grad = canvasCtx.createLinearGradient(0, -h, 0, 0);
-            grad.addColorStop(0, '#FF1744');
-            grad.addColorStop(1, '#B71C1C');
-            canvasCtx.fillStyle = grad;
-            canvasCtx.fill();
-
-            canvasCtx.lineWidth = 3;
-            canvasCtx.strokeStyle = '#4A0000';
-            canvasCtx.stroke();
-
-            canvasCtx.restore();
-        }
-
-        // Draw Vignette Dark Boundary Effect for Incorrect Answer
-        function drawDarkVignette() {
-            const w = arCanvas.width;
-            const h = arCanvas.height;
-            const outerRadius = Math.max(w, h) * 0.7;
-
-            const vignetteGrad = canvasCtx.createRadialGradient(
-                w / 2, h / 2, w * 0.2,
-                w / 2, h / 2, outerRadius
-            );
-            vignetteGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-            vignetteGrad.addColorStop(0.6, 'rgba(120, 0, 0, 0.4)');
-            vignetteGrad.addColorStop(1, 'rgba(180, 0, 0, 0.85)');
-
-            canvasCtx.fillStyle = vignetteGrad;
-            canvasCtx.fillRect(0, 0, w, h);
-        }
-
-        // ================= GAME OVER & RESTART SYSTEM =================
-        function showEndScreen() {
-            endModal.classList.remove('hidden');
-            document.getElementById('final-score').innerText = totalScore;
-
-            const endTitle = document.getElementById('end-title');
-            const endIcon = document.getElementById('end-icon');
-            const endFeedback = document.getElementById('end-feedback');
-
-            if (totalScore >= 8) {
-                // High Score Victory
-                endTitle.innerText = "🎉 ยอดเยี่ยมที่สุด!";
-                endIcon.className = "w-24 h-24 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner animate-bounce";
-                endIcon.innerHTML = `<i class="fa-solid fa-trophy"></i>`;
-                endFeedback.innerText = "คุณออกเสียงภาษาอังกฤษได้เป๊ะมากๆ!";
-                playSound('fanfare');
-                triggerConfetti();
-            } else {
-                // Low Score Encouragement
-                endTitle.innerText = "พยายามได้ดีมาก!";
-                endIcon.className = "w-24 h-24 bg-pink-100 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl shadow-inner";
-                endIcon.innerHTML = `<i class="fa-solid fa-heart"></i>`;
-                endFeedback.innerText = "ฝึกฝนอีกนิด รับรองว่าได้เต็ม 10 แน่นอน!";
-                playSound('gameover');
+                if (gameState.robotTimer <= 0) {
+                    gameState.robotState = 'idle';
+                    robotGroup.position.x = -3.2;
+                }
             }
-        }
 
-        function triggerConfetti() {
-            if (window.confetti) {
-                window.confetti({
-                    particleCount: 100,
-                    spread: 70,
-                    origin: { y: 0.6 }
-                });
+            // Animate Water Particles
+            for (let i = waterParticles.length - 1; i >= 0; i--) {
+                const wp = waterParticles[i];
+                wp.mesh.position.y += wp.vy;
+                if (wp.mesh.position.y <= 0.1) {
+                    scene.remove(wp.mesh);
+                    waterParticles.splice(i, 1);
+                }
             }
-        }
 
-        function resetGame() {
-            currentQuestionIndex = 0;
-            totalScore = 0;
-            endModal.classList.add('hidden');
-            startNewRound();
-        }
+            // Animate Spark Particles
+            for (let i = sparkParticles.length - 1; i >= 0; i--) {
+                const sp = sparkParticles[i];
+                sp.life += delta;
+                sp.vy -= delta * 0.5; // gravity
+                sp.mesh.position.x += sp.vx;
+                sp.mesh.position.y += sp.vy;
+                sp.mesh.position.z += sp.vz;
 
-        // ================= EVENT LISTENERS & INITIALIZATION =================
-        window.addEventListener('DOMContentLoaded', () => {
-            setupSpeechRecognition();
+                if (sp.life >= 0.6) {
+                    scene.remove(sp.mesh);
+                    sparkParticles.splice(i, 1);
+                }
+            }
 
-            // Start Game Button Handler
-            startBtn.addEventListener('click', () => {
-                playSound('click');
-                startModal.classList.add('hidden');
-                setupMediaPipeFaceMesh();
-                startNewRound();
+            // 5. Crop Growth Loop
+            plots.forEach(plot => {
+                // Billboard Progress Bar
+                if (plot.barGroup) {
+                    plot.barGroup.quaternion.copy(camera.quaternion);
+                }
+
+                if (plot.state === 'growing') {
+                    const seed = CROP_DATA[plot.cropType];
+                    const speed = delta * gameState.waterBuffMultiplier;
+                    plot.growthProgress += speed / seed.growTime;
+
+                    // Update Progress Bar
+                    const fill = Math.min(plot.growthProgress, 1.0);
+                    plot.fillBar.scale.x = fill;
+                    plot.fillBar.position.x = -0.38 + (fill * 0.76) / 2;
+
+                    // Growth Stage Transition
+                    if (plot.growthProgress >= 1.0) {
+                        plot.state = 'ready';
+                        plot.barGroup.visible = false;
+
+                        // Replace sprout with mature mesh
+                        if (plot.cropMesh) plot.group.remove(plot.cropMesh);
+                        plot.cropMesh = createCropMesh(plot.cropType, 'mature');
+                        plot.group.add(plot.cropMesh);
+                    }
+                }
+
+                // Bounce Effect for Ready Crops
+                if (plot.state === 'ready' && plot.cropMesh) {
+                    const bounce = 1.0 + Math.abs(Math.sin(time * 4)) * 0.15;
+                    plot.cropMesh.scale.set(bounce, bounce, bounce);
+                }
             });
 
-            // Play Again Restart Button Handler
-            restartBtn.addEventListener('click', () => {
-                playSound('click');
-                resetGame();
-            });
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Window Resize Handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         });
+
+        // Initialize UI
+        updateUI();
+
+        // Start Animation Loop after window load
+        window.onload = () => {
+            animate();
+        };
     </script>
 </body>
 </html>
